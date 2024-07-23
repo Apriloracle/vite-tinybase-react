@@ -2,7 +2,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'rea
 import { createWalletClient, custom } from 'viem';
 import { celo } from 'viem/chains';
 
-const Celon = forwardRef((props, ref) => {
+const Celon = forwardRef(({ onAddressChange }, ref) => {
   const [address, setAddress] = useState(null);
 
   useEffect(() => {
@@ -18,7 +18,9 @@ const Celon = forwardRef((props, ref) => {
 
       const addresses = await client.getAddresses();
       if (addresses && addresses.length > 0) {
-        setAddress(addresses[0]);
+        const newAddress = addresses[0];
+        setAddress(newAddress);
+        onAddressChange(newAddress);
       }
     } else {
       console.error('Ethereum provider not found');

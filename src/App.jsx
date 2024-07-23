@@ -7,6 +7,7 @@ import {
 } from 'tinybase/ui-react-dom';
 import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
+import Celon from './Celon';
 
 export const App = () => {
   const store = useCreateStore(() => {
@@ -27,6 +28,7 @@ export const App = () => {
     <StrictMode>
       <Provider store={store}>
         <Buttons />
+        <Celon />
         <div>
           <h2>Values</h2>
           <ValuesInHtmlTable />

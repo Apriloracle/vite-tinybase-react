@@ -14,6 +14,7 @@ export const App = () => {
     // Create the TinyBase Store and initialize the Store's data
     return createStore()
       .setValue('counter', 0)
+      .setValue('clickCounter', 0) // Initialize the new click counter
       .setRow('pets', '0', { name: 'fido', species: 'dog' })
       .setTable('species', {
         dog: { price: 5 },

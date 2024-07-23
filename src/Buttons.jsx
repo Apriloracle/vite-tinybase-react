@@ -1,4 +1,6 @@
+import React from 'react';
 import { useAddRowCallback, useSetValueCallback } from 'tinybase/ui-react';
+import Celon from './Celon';
 
 // Convenience function for generating a random integer
 const getRandom = (max = 100) => Math.floor(Math.random() * max);
@@ -15,11 +17,22 @@ export const Buttons = () => {
     species: store.getRowIds('species')[getRandom(5)],
   }));
 
+  const celonRef = React.useRef(null);
+
+  const handleFetchCeloAddress = async () => {
+    if (celonRef.current) {
+      const address = await celonRef.current.getAddress();
+      console.log('Fetched Celo address:', address);
+    }
+  };
+
   return (
     <div id='buttons'>
       <button onClick={handleCount}>Increment number</button>
       <button onClick={handleRandom}>Random number</button>
       <button onClick={handleAddPet}>Add a pet</button>
+      <button onClick={handleFetchCeloAddress}>Fetch Celo Address</button>
+      <Celon ref={celonRef} />
     </div>
   );
 };

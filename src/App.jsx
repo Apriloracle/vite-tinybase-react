@@ -7,13 +7,16 @@ import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom
 import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
 import Celon from './Celon';
+import { createMergeableStore } from 'tinybase/persisters/persister-localstorage';
 
 const DB_NAME = 'MyAppDatabase';
+const MERGEABLE_STORE_ID = 'CeloAddressStore';
 
 export const App = () => {
   const [persister, setPersister] = useState(null);
   const store = useCreateStore(() => createStore());
   const [broadcastChannel, setBroadcastChannel] = useState(null);
+  const [mergeableStore, setMergeableStore] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
@@ -52,6 +55,12 @@ export const App = () => {
         };
         setBroadcastChannel(channel);
 
+        // Initialize MergeableStore for Celo address
+        const newMergeableStore = createMergeableStore(MERGEABLE_STORE_ID);
+        const localPersister = createLocalPersister(newMergeableStore);
+        await localPersister.load();
+        setMergeableStore(newMergeableStore);
+
       } catch (error) {
         console.error('Error initializing persister:', error);
       }
@@ -84,11 +93,23 @@ export const App = () => {
     }
   }, [persister, broadcastChannel]);
 
+  const saveCeloAddress = useCallback(async (address) => {
+    if (mergeableStore) {
+      mergeableStore.setCell('celo_addresses', 'current', 'address', address);
+      try {
+        await localPersister.save();
+        console.log('Celo address saved to local storage');
+      } catch (error) {
+        console.error('Error saving Celo address:', error);
+      }
+    }
+  }, [mergeableStore]);
+
   return (
     <StrictMode>
       <Provider store={store}>
         <Buttons onSave={saveData} />
-        <Celon />
+        <Celon onAddressChange={saveCeloAddress} />
         <div>
           <h2>Values</h2>
           <ValuesInHtmlTable />

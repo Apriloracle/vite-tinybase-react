@@ -3,40 +3,23 @@ import { createStore } from 'tinybase';
 import { Provider, useCreateStore } from 'tinybase/ui-react';
 import { createCrSqliteWasmPersister } from 'tinybase/persisters/persister-cr-sqlite-wasm';
 import initWasm from '@vlcn.io/crsqlite-wasm';
-import { useSync } from "@vlcn.io/react";
 import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom';
 import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
 import Celon from './Celon';
-import SyncWorker from './sync-worker.js?worker';
 
 const DB_NAME = 'MyAppDatabase';
-const SYNC_ROOM = 'my-app-room';
-const worker = new SyncWorker();
 
 export const App = () => {
   const [persister, setPersister] = useState(null);
-  const [crSqlite, setCrSqlite] = useState(null);
   const store = useCreateStore(() => createStore());
+  const [broadcastChannel, setBroadcastChannel] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
       try {
         const crSqlite3 = await initWasm();
-        setCrSqlite(crSqlite3);
         const db = await crSqlite3.open(DB_NAME);
-        
-        // Enable WAL mode for better performance
-        await db.exec('PRAGMA journal_mode = WAL;');
-        
-        // Create the tinybase table if it doesn't exist
-        await db.exec(`
-          CREATE TABLE IF NOT EXISTS my_tinybase (
-            _id TEXT PRIMARY KEY,
-            store TEXT
-          ) WITHOUT ROWID;
-        `);
-
         const newPersister = createCrSqliteWasmPersister(store, db, 'my_tinybase');
         
         await newPersister.load();
@@ -60,6 +43,15 @@ export const App = () => {
 
         setPersister(newPersister);
 
+        // Set up BroadcastChannel for cross-tab communication
+        const channel = new BroadcastChannel('store_updates');
+        channel.onmessage = async (event) => {
+          if (event.data.type === 'store_updated') {
+            await newPersister.load();
+          }
+        };
+        setBroadcastChannel(channel);
+
       } catch (error) {
         console.error('Error initializing persister:', error);
       }
@@ -71,26 +63,26 @@ export const App = () => {
       if (persister) {
         persister.destroy();
       }
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
     };
   }, [store]);
-
-  useSync({
-    dbname: DB_NAME,
-    endpoint: "wss://vite-starter2.fly.dev/sync",
-    room: SYNC_ROOM,
-    worker,
-  });
 
   const saveData = useCallback(async () => {
     if (persister) {
       try {
         await persister.save();
         console.log('Data saved to CR-SQLite database');
+        // Notify other tabs about the update
+        if (broadcastChannel) {
+          broadcastChannel.postMessage({ type: 'store_updated' });
+        }
       } catch (error) {
         console.error('Error saving data:', error);
       }
     }
-  }, [persister]);
+  }, [persister, broadcastChannel]);
 
   return (
     <StrictMode>

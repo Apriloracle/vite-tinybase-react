@@ -5,7 +5,7 @@ import Celon from './Celon';
 // Convenience function for generating a random integer
 const getRandom = (max = 100) => Math.floor(Math.random() * max);
 
-export const Buttons = () => {
+export const Buttons = ({ onSave }) => {
   // Attach events to the buttons to mutate the data in the TinyBase Store
   const handleCount = useSetValueCallback(
     'counter',
@@ -17,7 +17,7 @@ export const Buttons = () => {
     species: store.getRowIds('species')[getRandom(5)],
   }));
 
-  // New click counter
+  // Click counter
   const handleClickCount = useSetValueCallback(
     'clickCounter',
     () => (value) => (value || 0) + 1
@@ -32,13 +32,19 @@ export const Buttons = () => {
     }
   };
 
+  const handleAction = (action) => {
+    action();
+    onSave();
+  };
+
   return (
     <div id='buttons'>
-      <button onClick={handleCount}>Increment number</button>
-      <button onClick={handleRandom}>Random number</button>
-      <button onClick={handleAddPet}>Add a pet</button>
+      <button onClick={() => handleAction(handleCount)}>Increment number</button>
+      <button onClick={() => handleAction(handleRandom)}>Random number</button>
+      <button onClick={() => handleAction(handleAddPet)}>Add a pet</button>
       <button onClick={handleFetchCeloAddress}>Fetch Celo Address</button>
-      <button onClick={handleClickCount}>Count Clicks</button>
+      <button onClick={() => handleAction(handleClickCount)}>Count Clicks</button>
+      <button onClick={onSave}>Save Data</button>
       <Celon ref={celonRef} />
     </div>
   );

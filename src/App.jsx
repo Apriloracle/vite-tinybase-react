@@ -1,8 +1,8 @@
 import React, { StrictMode, useEffect, useCallback, useState } from 'react';
 import { createStore } from 'tinybase';
 import { Provider, useCreateStore } from 'tinybase/ui-react';
-import { createSqliteWasmPersister } from 'tinybase/persisters/persister-sqlite-wasm';
-import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+import { createCrSqliteWasmPersister } from 'tinybase/persisters/persister-cr-sqlite-wasm';
+import initWasm from '@vlcn.io/crsqlite-wasm';
 import {
   SortedTableInHtmlTable,
   ValuesInHtmlTable,
@@ -18,12 +18,12 @@ export const App = () => {
   useEffect(() => {
     const initializePersister = async () => {
       try {
-        const sqlite3 = await sqlite3InitModule();
-        const db = new sqlite3.oo1.DB(':memory:', 'c');
-        const newPersister = createSqliteWasmPersister(store, sqlite3, db, 'my_tinybase');
+        const crSqlite3 = await initWasm();
+        const db = await crSqlite3.open();
+        const newPersister = createCrSqliteWasmPersister(store, db, 'my_tinybase');
         
         await newPersister.load();
-        console.log('Data loaded from SQLite database');
+        console.log('Data loaded from CR-SQLite database');
 
         // Initialize store if it's empty
         if (Object.keys(store.getTables()).length === 0) {
@@ -60,7 +60,7 @@ export const App = () => {
     if (persister) {
       try {
         await persister.save();
-        console.log('Data saved to SQLite database');
+        console.log('Data saved to CR-SQLite database');
       } catch (error) {
         console.error('Error saving data:', error);
       }

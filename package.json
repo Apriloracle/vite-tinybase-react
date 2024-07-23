@@ -15,6 +15,8 @@
     "viem": "^2.15.1",
     "@vlcn.io/crsqlite-wasm": "^0.16.0",
     "react-dom": "^18.3.1",
+    "@vlcn.io/ws-client": "^0.2.0",
+    "@vlcn.io/react": "^3.1.0"
     "tinybase": "^5.1.0"
   }
 }

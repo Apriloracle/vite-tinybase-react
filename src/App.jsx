@@ -1,29 +1,19 @@
 import React, { StrictMode, useEffect, useCallback, useState } from 'react';
 import { createStore } from 'tinybase';
-import { Provider, useCreateStore, useCell } from 'tinybase/ui-react';
+import { Provider, useCreateStore } from 'tinybase/ui-react';
 import { createCrSqliteWasmPersister } from 'tinybase/persisters/persister-cr-sqlite-wasm';
 import initWasm from '@vlcn.io/crsqlite-wasm';
 import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom';
 import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
 import Celon from './Celon';
-import { createMergeableStore } from 'tinybase';
-import { createLocalPersister } from 'tinybase/persisters/persister-browser';
 
 const DB_NAME = 'MyAppDatabase';
-const MERGEABLE_STORE_ID = 'CeloAddressStore';
-
-const CeloAddressCounter = () => {
-  const count = useCell(MERGEABLE_STORE_ID, 'celo_addresses', 'count', 'value') || 0;
-  return <div>Number of Celo Addresses: {count}</div>;
-};
 
 export const App = () => {
   const [persister, setPersister] = useState(null);
   const store = useCreateStore(() => createStore());
   const [broadcastChannel, setBroadcastChannel] = useState(null);
-  const [mergeableStore, setMergeableStore] = useState(null);
-  const [localPersister, setLocalPersister] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
@@ -62,19 +52,6 @@ export const App = () => {
         };
         setBroadcastChannel(channel);
 
-        // Initialize MergeableStore for Celo address count
-        const newMergeableStore = createMergeableStore(MERGEABLE_STORE_ID);
-        const newLocalPersister = createLocalPersister(newMergeableStore, 'celo_address_count');
-        await newLocalPersister.load();
-        
-        // Initialize the address count if it doesn't exist
-        if (!newMergeableStore.getCell('celo_addresses', 'count', 'value')) {
-          newMergeableStore.setCell('celo_addresses', 'count', 'value', 0);
-        }
-        
-        setMergeableStore(newMergeableStore);
-        setLocalPersister(newLocalPersister);
-
       } catch (error) {
         console.error('Error initializing persister:', error);
       }
@@ -88,9 +65,6 @@ export const App = () => {
       }
       if (broadcastChannel) {
         broadcastChannel.close();
-      }
-      if (localPersister) {
-        localPersister.destroy();
       }
     };
   }, [store]);
@@ -110,54 +84,35 @@ export const App = () => {
     }
   }, [persister, broadcastChannel]);
 
-  const incrementCeloAddressCount = useCallback(async () => {
-    if (mergeableStore && localPersister) {
-      const currentCount = mergeableStore.getCell('celo_addresses', 'count', 'value') || 0;
-      const newCount = currentCount + 1;
-      
-      mergeableStore.setCell('celo_addresses', 'count', 'value', newCount);
-      
-      try {
-        await localPersister.save();
-        console.log('Celo address count incremented and saved to local storage');
-      } catch (error) {
-        console.error('Error saving Celo address count:', error);
-      }
-    }
-  }, [mergeableStore, localPersister]);
-
   return (
     <StrictMode>
       <Provider store={store}>
-        <Provider store={mergeableStore}>
-          <Buttons onSave={saveData} />
-          <Celon onAddressDetected={incrementCeloAddressCount} />
-          <CeloAddressCounter />
-          <div>
-            <h2>Values</h2>
-            <ValuesInHtmlTable />
-          </div>
-          <div>
-            <h2>Species Table</h2>
-            <SortedTableInHtmlTable
-              tableId='species'
-              cellId='price'
-              descending={true}
-              sortOnClick={true}
-              className='sortedTable'
-            />
-            <h2>Pets Table</h2>
-            <SortedTableInHtmlTable
-              tableId='pets'
-              cellId='name'
-              limit={5}
-              sortOnClick={true}
-              className='sortedTable'
-              paginator={true}
-            />
-          </div>
-          <Inspector />
-        </Provider>
+        <Buttons onSave={saveData} />
+        <Celon />
+        <div>
+          <h2>Values</h2>
+          <ValuesInHtmlTable />
+        </div>
+        <div>
+          <h2>Species Table</h2>
+          <SortedTableInHtmlTable
+            tableId='species'
+            cellId='price'
+            descending={true}
+            sortOnClick={true}
+            className='sortedTable'
+          />
+          <h2>Pets Table</h2>
+          <SortedTableInHtmlTable
+            tableId='pets'
+            cellId='name'
+            limit={5}
+            sortOnClick={true}
+            className='sortedTable'
+            paginator={true}
+          />
+        </div>
+        <Inspector />
       </Provider>
     </StrictMode>
   );

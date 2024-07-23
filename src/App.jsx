@@ -1,6 +1,8 @@
-import { StrictMode, useEffect, useCallback } from 'react';
+import React, { StrictMode, useEffect, useCallback, useState } from 'react';
 import { createStore } from 'tinybase';
 import { Provider, useCreateStore } from 'tinybase/ui-react';
+import { createSqliteWasmPersister } from 'tinybase/persisters/persister-sqlite-wasm';
+import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import {
   SortedTableInHtmlTable,
   ValuesInHtmlTable,
@@ -9,38 +11,61 @@ import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
 import Celon from './Celon';
 
-const STORAGE_KEY = 'tinybaseAppData';
-
 export const App = () => {
-  const store = useCreateStore(() => {
-    // Create the TinyBase Store and initialize with data from localStorage if available
-    const savedData = localStorage.getItem(STORAGE_KEY);
-    const initialStore = createStore();
-    
-    if (savedData) {
-      initialStore.setJson(savedData);
-    } else {
-      initialStore
-        .setValue('counter', 0)
-        .setValue('clickCounter', 0)
-        .setRow('pets', '0', { name: 'fido', species: 'dog' })
-        .setTable('species', {
-          dog: { price: 5 },
-          cat: { price: 4 },
-          fish: { price: 2 },
-          worm: { price: 1 },
-          parrot: { price: 3 },
-        });
-    }
-    
-    return initialStore;
-  });
+  const [persister, setPersister] = useState(null);
+  const store = useCreateStore(() => createStore());
 
-  const saveData = useCallback(() => {
-    const data = store.getJson();
-    localStorage.setItem(STORAGE_KEY, data);
-    console.log('Data saved to LocalStorage');
+  useEffect(() => {
+    const initializePersister = async () => {
+      try {
+        const sqlite3 = await sqlite3InitModule();
+        const db = new sqlite3.oo1.DB(':memory:', 'c');
+        const newPersister = createSqliteWasmPersister(store, sqlite3, db, 'my_tinybase');
+        
+        await newPersister.load();
+        console.log('Data loaded from SQLite database');
+
+        // Initialize store if it's empty
+        if (Object.keys(store.getTables()).length === 0) {
+          store
+            .setValue('counter', 0)
+            .setValue('clickCounter', 0)
+            .setRow('pets', '0', { name: 'fido', species: 'dog' })
+            .setTable('species', {
+              dog: { price: 5 },
+              cat: { price: 4 },
+              fish: { price: 2 },
+              worm: { price: 1 },
+              parrot: { price: 3 },
+            });
+          await newPersister.save();
+        }
+
+        setPersister(newPersister);
+      } catch (error) {
+        console.error('Error initializing persister:', error);
+      }
+    };
+
+    initializePersister();
+
+    return () => {
+      if (persister) {
+        persister.destroy();
+      }
+    };
   }, [store]);
+
+  const saveData = useCallback(async () => {
+    if (persister) {
+      try {
+        await persister.save();
+        console.log('Data saved to SQLite database');
+      } catch (error) {
+        console.error('Error saving data:', error);
+      }
+    }
+  }, [persister]);
 
   return (
     <StrictMode>

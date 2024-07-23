@@ -7,7 +7,8 @@ import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom
 import { Inspector } from 'tinybase/ui-react-inspector';
 import { Buttons } from './Buttons';
 import Celon from './Celon';
-import { createMergeableStore } from 'tinybase/persisters/persister-localstorage';
+import { createMergeableStore } from 'tinybase';
+import { createLocalPersister } from 'tinybase/persisters/persister-browser';
 
 const DB_NAME = 'MyAppDatabase';
 const MERGEABLE_STORE_ID = 'CeloAddressStore';
@@ -17,6 +18,7 @@ export const App = () => {
   const store = useCreateStore(() => createStore());
   const [broadcastChannel, setBroadcastChannel] = useState(null);
   const [mergeableStore, setMergeableStore] = useState(null);
+  const [localPersister, setLocalPersister] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
@@ -57,9 +59,10 @@ export const App = () => {
 
         // Initialize MergeableStore for Celo address
         const newMergeableStore = createMergeableStore(MERGEABLE_STORE_ID);
-        const localPersister = createLocalPersister(newMergeableStore);
-        await localPersister.load();
+        const newLocalPersister = createLocalPersister(newMergeableStore, 'celo_address_storage');
+        await newLocalPersister.load();
         setMergeableStore(newMergeableStore);
+        setLocalPersister(newLocalPersister);
 
       } catch (error) {
         console.error('Error initializing persister:', error);
@@ -74,6 +77,9 @@ export const App = () => {
       }
       if (broadcastChannel) {
         broadcastChannel.close();
+      }
+      if (localPersister) {
+        localPersister.destroy();
       }
     };
   }, [store]);
@@ -94,7 +100,7 @@ export const App = () => {
   }, [persister, broadcastChannel]);
 
   const saveCeloAddress = useCallback(async (address) => {
-    if (mergeableStore) {
+    if (mergeableStore && localPersister) {
       mergeableStore.setCell('celo_addresses', 'current', 'address', address);
       try {
         await localPersister.save();
@@ -103,7 +109,7 @@ export const App = () => {
         console.error('Error saving Celo address:', error);
       }
     }
-  }, [mergeableStore]);
+  }, [mergeableStore, localPersister]);
 
   return (
     <StrictMode>

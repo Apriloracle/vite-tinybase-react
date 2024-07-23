@@ -17,6 +17,12 @@ export const Buttons = () => {
     species: store.getRowIds('species')[getRandom(5)],
   }));
 
+  // New click counter
+  const handleClickCount = useSetValueCallback(
+    'clickCounter',
+    () => (value) => (value || 0) + 1
+  );
+
   const celonRef = React.useRef(null);
 
   const handleFetchCeloAddress = async () => {
@@ -32,6 +38,7 @@ export const Buttons = () => {
       <button onClick={handleRandom}>Random number</button>
       <button onClick={handleAddPet}>Add a pet</button>
       <button onClick={handleFetchCeloAddress}>Fetch Celo Address</button>
+      <button onClick={handleClickCount}>Count Clicks</button>
       <Celon ref={celonRef} />
     </div>
   );

@@ -3,6 +3,7 @@ import { createStore, createMergeableStore } from 'tinybase';
 import { Provider, useCreateStore, useValue } from 'tinybase/ui-react';
 import { createCrSqliteWasmPersister } from 'tinybase/persisters/persister-cr-sqlite-wasm';
 import { createLocalPersister } from 'tinybase/persisters/persister-browser';
+import { createWsSynchronizer } from 'tinybase/synchronizers/synchronizer-ws-client';
 import initWasm from '@vlcn.io/crsqlite-wasm';
 import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom';
 import { Inspector } from 'tinybase/ui-react-inspector';
@@ -12,6 +13,7 @@ import Celon from './Celon';
 const DB_NAME = 'MyAppDatabase';
 const CLICK_COUNTER_KEY = 'clickCounter';
 const MERGEABLE_STORE_KEY = 'mergeableClickCounter';
+const WS_SERVER = 'wss://todo.demo.tinybase.org/';
 
 const GlobalClickCounter = () => {
   const clickCount = useValue(CLICK_COUNTER_KEY);
@@ -24,6 +26,7 @@ export const App = () => {
   const [broadcastChannel, setBroadcastChannel] = useState(null);
   const [mergeableStore, setMergeableStore] = useState(null);
   const [mergeablePersister, setMergeablePersister] = useState(null);
+  const [synchronizer, setSynchronizer] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
@@ -74,6 +77,12 @@ export const App = () => {
         setMergeableStore(newMergeableStore);
         setMergeablePersister(newMergeablePersister);
 
+        // Set up WebSocket Synchronizer
+        const webSocket = new WebSocket(WS_SERVER);
+        const newSynchronizer = await createWsSynchronizer(newMergeableStore, webSocket);
+        await newSynchronizer.startSync();
+        setSynchronizer(newSynchronizer);
+
       } catch (error) {
         console.error('Error initializing persister:', error);
       }
@@ -90,6 +99,9 @@ export const App = () => {
       }
       if (mergeablePersister) {
         mergeablePersister.destroy();
+      }
+      if (synchronizer) {
+        synchronizer.destroy();
       }
     };
   }, [store]);

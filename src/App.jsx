@@ -1,7 +1,8 @@
 import React, { StrictMode, useEffect, useCallback, useState } from 'react';
-import { createStore } from 'tinybase';
-import { Provider, useCreateStore } from 'tinybase/ui-react';
+import { createStore, createMergeableStore } from 'tinybase';
+import { Provider, useCreateStore, useValue } from 'tinybase/ui-react';
 import { createCrSqliteWasmPersister } from 'tinybase/persisters/persister-cr-sqlite-wasm';
+import { createLocalPersister } from 'tinybase/persisters/persister-browser';
 import initWasm from '@vlcn.io/crsqlite-wasm';
 import { SortedTableInHtmlTable, ValuesInHtmlTable } from 'tinybase/ui-react-dom';
 import { Inspector } from 'tinybase/ui-react-inspector';
@@ -9,11 +10,20 @@ import { Buttons } from './Buttons';
 import Celon from './Celon';
 
 const DB_NAME = 'MyAppDatabase';
+const CLICK_COUNTER_KEY = 'clickCounter';
+const MERGEABLE_STORE_KEY = 'mergeableClickCounter';
+
+const GlobalClickCounter = () => {
+  const clickCount = useValue(CLICK_COUNTER_KEY);
+  return <div>Global Click Count: {clickCount}</div>;
+};
 
 export const App = () => {
   const [persister, setPersister] = useState(null);
   const store = useCreateStore(() => createStore());
   const [broadcastChannel, setBroadcastChannel] = useState(null);
+  const [mergeableStore, setMergeableStore] = useState(null);
+  const [mergeablePersister, setMergeablePersister] = useState(null);
 
   useEffect(() => {
     const initializePersister = async () => {
@@ -29,7 +39,6 @@ export const App = () => {
         if (Object.keys(store.getTables()).length === 0) {
           store
             .setValue('counter', 0)
-            .setValue('clickCounter', 0)
             .setRow('pets', '0', { name: 'fido', species: 'dog' })
             .setTable('species', {
               dog: { price: 5 },
@@ -52,6 +61,19 @@ export const App = () => {
         };
         setBroadcastChannel(channel);
 
+        // Initialize mergeable store for click counter
+        const newMergeableStore = createMergeableStore('clickCounterStore');
+        const newMergeablePersister = createLocalPersister(newMergeableStore, MERGEABLE_STORE_KEY);
+        
+        await newMergeablePersister.load();
+        if (!newMergeableStore.getValue(CLICK_COUNTER_KEY)) {
+          newMergeableStore.setValue(CLICK_COUNTER_KEY, 0);
+          await newMergeablePersister.save();
+        }
+        
+        setMergeableStore(newMergeableStore);
+        setMergeablePersister(newMergeablePersister);
+
       } catch (error) {
         console.error('Error initializing persister:', error);
       }
@@ -65,6 +87,9 @@ export const App = () => {
       }
       if (broadcastChannel) {
         broadcastChannel.close();
+      }
+      if (mergeablePersister) {
+        mergeablePersister.destroy();
       }
     };
   }, [store]);
@@ -82,37 +107,48 @@ export const App = () => {
         console.error('Error saving data:', error);
       }
     }
-  }, [persister, broadcastChannel]);
+    if (mergeablePersister) {
+      try {
+        await mergeablePersister.save();
+        console.log('Mergeable store data saved to local storage');
+      } catch (error) {
+        console.error('Error saving mergeable store data:', error);
+      }
+    }
+  }, [persister, broadcastChannel, mergeablePersister]);
 
   return (
     <StrictMode>
       <Provider store={store}>
-        <Buttons onSave={saveData} />
-        <Celon />
-        <div>
-          <h2>Values</h2>
-          <ValuesInHtmlTable />
-        </div>
-        <div>
-          <h2>Species Table</h2>
-          <SortedTableInHtmlTable
-            tableId='species'
-            cellId='price'
-            descending={true}
-            sortOnClick={true}
-            className='sortedTable'
-          />
-          <h2>Pets Table</h2>
-          <SortedTableInHtmlTable
-            tableId='pets'
-            cellId='name'
-            limit={5}
-            sortOnClick={true}
-            className='sortedTable'
-            paginator={true}
-          />
-        </div>
-        <Inspector />
+        <Provider store={mergeableStore}>
+          <Buttons onSave={saveData} />
+          <GlobalClickCounter />
+          <Celon />
+          <div>
+            <h2>Values</h2>
+            <ValuesInHtmlTable />
+          </div>
+          <div>
+            <h2>Species Table</h2>
+            <SortedTableInHtmlTable
+              tableId='species'
+              cellId='price'
+              descending={true}
+              sortOnClick={true}
+              className='sortedTable'
+            />
+            <h2>Pets Table</h2>
+            <SortedTableInHtmlTable
+              tableId='pets'
+              cellId='name'
+              limit={5}
+              sortOnClick={true}
+              className='sortedTable'
+              paginator={true}
+            />
+          </div>
+          <Inspector />
+        </Provider>
       </Provider>
     </StrictMode>
   );

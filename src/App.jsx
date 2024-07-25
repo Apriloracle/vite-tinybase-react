@@ -28,6 +28,23 @@ export const App = () => {
   const [mergeablePersister, setMergeablePersister] = useState(null);
   const [synchronizer, setSynchronizer] = useState(null);
 
+  const handleCeloAddress = useCallback((address) => {
+    if (address && store) {
+      const existingNode = Object.entries(store.getTable('node_network') || {}).find(
+        ([_, node]) => node.celoAddress === address
+      );
+
+      if (!existingNode) {
+        const newNodeId = Date.now().toString();
+        store.setRow('node_network', newNodeId, {
+          celoAddress: address,
+          peerDID: 'Not set' // You might want to generate or fetch a real PeerDID here
+        });
+        saveData();
+      }
+    }
+  }, [store]);
+
   useEffect(() => {
     const initializePersister = async () => {
       try {
@@ -42,10 +59,7 @@ export const App = () => {
         if (Object.keys(store.getTables()).length === 0) {
           store
             .setValue('counter', 0)
-            .setTable('node_network', {
-              '1': { celoAddress: '0x1234...', peerDID: 'did:peer:123...' },
-              '2': { celoAddress: '0x5678...', peerDID: 'did:peer:456...' },
-            });
+            .setTable('node_network', {});
           await newPersister.save();
         }
 
@@ -131,7 +145,7 @@ export const App = () => {
         <Provider store={mergeableStore}>
           <Buttons onSave={saveData} />
           <GlobalClickCounter />
-          <Celon />
+          <Celon onAddressChange={handleCeloAddress} />
           <div>
             <h2>Values</h2>
             <ValuesInHtmlTable />

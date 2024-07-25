@@ -4,7 +4,7 @@ import { useSetValueCallback } from 'tinybase/ui-react';
 // Convenience function for generating a random integer
 const getRandom = (max = 100) => Math.floor(Math.random() * max);
 
-export const Buttons = ({ onSave }) => {
+export const Buttons = ({ onSave, onUpdateTimer }) => {
   // Attach events to the buttons to mutate the data in the TinyBase Store
   const handleCount = useSetValueCallback(
     'counter',
@@ -28,6 +28,7 @@ export const Buttons = ({ onSave }) => {
       <button onClick={() => handleAction(handleCount)}>Increment number</button>
       <button onClick={() => handleAction(handleRandom)}>Random number</button>
       <button onClick={() => handleAction(handleClickCount)}>Count Clicks</button>
+      <button onClick={() => handleAction(onUpdateTimer)}>Update Network Timer</button>
       <button onClick={onSave}>Save Data</button>
     </div>
   );

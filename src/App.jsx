@@ -49,6 +49,10 @@ export const App = () => {
               fish: { price: 2 },
               worm: { price: 1 },
               parrot: { price: 3 },
+            })
+            .setTable('node_network', {
+              '1': { celoAddress: '0x1234...', peerDID: 'did:peer:123...' },
+              '2': { celoAddress: '0x5678...', peerDID: 'did:peer:456...' },
             });
           await newPersister.save();
         }
@@ -157,6 +161,13 @@ export const App = () => {
               sortOnClick={true}
               className='sortedTable'
               paginator={true}
+            />
+            <h2>Node Network Table</h2>
+            <SortedTableInHtmlTable
+              tableId='node_network'
+              cellId='celoAddress'
+              sortOnClick={true}
+              className='sortedTable'
             />
           </div>
           <Inspector />

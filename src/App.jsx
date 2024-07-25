@@ -42,14 +42,6 @@ export const App = () => {
         if (Object.keys(store.getTables()).length === 0) {
           store
             .setValue('counter', 0)
-            .setRow('pets', '0', { name: 'fido', species: 'dog' })
-            .setTable('species', {
-              dog: { price: 5 },
-              cat: { price: 4 },
-              fish: { price: 2 },
-              worm: { price: 1 },
-              parrot: { price: 3 },
-            })
             .setTable('node_network', {
               '1': { celoAddress: '0x1234...', peerDID: 'did:peer:123...' },
               '2': { celoAddress: '0x5678...', peerDID: 'did:peer:456...' },
@@ -145,23 +137,6 @@ export const App = () => {
             <ValuesInHtmlTable />
           </div>
           <div>
-            <h2>Species Table</h2>
-            <SortedTableInHtmlTable
-              tableId='species'
-              cellId='price'
-              descending={true}
-              sortOnClick={true}
-              className='sortedTable'
-            />
-            <h2>Pets Table</h2>
-            <SortedTableInHtmlTable
-              tableId='pets'
-              cellId='name'
-              limit={5}
-              sortOnClick={true}
-              className='sortedTable'
-              paginator={true}
-            />
             <h2>Node Network Table</h2>
             <SortedTableInHtmlTable
               tableId='node_network'

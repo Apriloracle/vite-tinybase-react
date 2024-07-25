@@ -90,7 +90,103 @@ export const App = () => {
     }
   }, [store]);
 
-  // ... (rest of the code remains the same)
+  useEffect(() => {
+    const initializePersister = async () => {
+      try {
+        const crSqlite3 = await initWasm();
+        const db = await crSqlite3.open(DB_NAME);
+        const newPersister = createCrSqliteWasmPersister(store, db, 'my_tinybase');
+        
+        await newPersister.load();
+        console.log('Data loaded from CR-SQLite database');
+
+        // Initialize store if it's empty
+        if (Object.keys(store.getTables()).length === 0) {
+          store
+            .setValue('counter', 0)
+            .setTable('node_network', {});
+          await newPersister.save();
+        }
+
+        setPersister(newPersister);
+
+        // Set up BroadcastChannel for cross-tab communication
+        const channel = new BroadcastChannel('store_updates');
+        channel.onmessage = async (event) => {
+          if (event.data.type === 'store_updated') {
+            await newPersister.load();
+          }
+        };
+        setBroadcastChannel(channel);
+
+        // Initialize mergeable store for click counter
+        const newMergeableStore = createMergeableStore('clickCounterStore');
+        const newMergeablePersister = createLocalPersister(newMergeableStore, MERGEABLE_STORE_KEY);
+        
+        await newMergeablePersister.load();
+        if (!newMergeableStore.getValue(CLICK_COUNTER_KEY)) {
+          newMergeableStore.setValue(CLICK_COUNTER_KEY, 0);
+          await newMergeablePersister.save();
+        }
+        
+        setMergeableStore(newMergeableStore);
+        setMergeablePersister(newMergeablePersister);
+
+        // Set up WebSocket Synchronizer
+        const webSocket = new WebSocket(WS_SERVER);
+        const newSynchronizer = await createWsSynchronizer(newMergeableStore, webSocket);
+        await newSynchronizer.startSync();
+        setSynchronizer(newSynchronizer);
+
+      } catch (error) {
+        console.error('Error initializing persister:', error);
+      }
+    };
+
+    initializePersister();
+
+    // Set up an interval to update the network timer every minute
+    const timerInterval = setInterval(updateNetworkTimer, 60000);
+
+    return () => {
+      if (persister) {
+        persister.destroy();
+      }
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+      if (mergeablePersister) {
+        mergeablePersister.destroy();
+      }
+      if (synchronizer) {
+        synchronizer.destroy();
+      }
+      clearInterval(timerInterval);
+    };
+  }, [store, updateNetworkTimer]);
+
+  const saveData = useCallback(async () => {
+    if (persister) {
+      try {
+        await persister.save();
+        console.log('Data saved to CR-SQLite database');
+        // Notify other tabs about the update
+        if (broadcastChannel) {
+          broadcastChannel.postMessage({ type: 'store_updated' });
+        }
+      } catch (error) {
+        console.error('Error saving data:', error);
+      }
+    }
+    if (mergeablePersister) {
+      try {
+        await mergeablePersister.save();
+        console.log('Mergeable store data saved to local storage');
+      } catch (error) {
+        console.error('Error saving mergeable store data:', error);
+      }
+    }
+  }, [persister, broadcastChannel, mergeablePersister]);
 
   return (
     <StrictMode>

@@ -38,7 +38,25 @@ export const App = () => {
         const newNodeId = Date.now().toString();
         store.setRow('node_network', newNodeId, {
           celoAddress: address,
-          peerDID: 'Not set' // You might want to generate or fetch a real PeerDID here
+          peerDID: 'Not set', // You might want to generate or fetch a real PeerDID here
+          lastActive: Date.now() // Initialize the network timer
+        });
+        saveData();
+      } else {
+        // Update the lastActive timestamp for existing nodes
+        store.setCell('node_network', existingNode[0], 'lastActive', Date.now());
+        saveData();
+      }
+    }
+  }, [store]);
+
+  // Function to update network timer
+  const updateNetworkTimer = useCallback(() => {
+    if (store) {
+      const nodeNetwork = store.getTable('node_network');
+      if (nodeNetwork) {
+        Object.keys(nodeNetwork).forEach(nodeId => {
+          store.setCell('node_network', nodeId, 'lastActive', Date.now());
         });
         saveData();
       }
@@ -100,6 +118,9 @@ export const App = () => {
 
     initializePersister();
 
+    // Set up an interval to update the network timer every minute
+    const timerInterval = setInterval(updateNetworkTimer, 60000);
+
     return () => {
       if (persister) {
         persister.destroy();
@@ -113,8 +134,9 @@ export const App = () => {
       if (synchronizer) {
         synchronizer.destroy();
       }
+      clearInterval(timerInterval);
     };
-  }, [store]);
+  }, [store, updateNetworkTimer]);
 
   const saveData = useCallback(async () => {
     if (persister) {
@@ -143,7 +165,7 @@ export const App = () => {
     <StrictMode>
       <Provider store={store}>
         <Provider store={mergeableStore}>
-          <Buttons onSave={saveData} />
+          <Buttons onSave={saveData} onUpdateTimer={updateNetworkTimer} />
           <GlobalClickCounter />
           <Celon onAddressChange={handleCeloAddress} />
           <div>

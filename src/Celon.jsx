@@ -1,93 +1,82 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { createWalletClient, custom, http } from 'viem';
+import { createPublicClient, http, parseEther } from 'viem';
+import { createBundlerClient, toCoinbaseSmartAccount } from 'viem/account-abstraction';
 import { celo } from 'viem/chains';
-import { createBundlerClient, createSmartAccountClient } from 'permissionless';
-import { createKernelAccountClient } from 'permissionless/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const Celon = forwardRef(({ onAddressChange }, ref) => {
   const [address, setAddress] = useState(null);
-  const [smartAccountAddress, setSmartAccountAddress] = useState(null);
+  const [smartAccount, setSmartAccount] = useState(null);
   const [bundlerClient, setBundlerClient] = useState(null);
-  const [smartAccountClient, setSmartAccountClient] = useState(null);
 
   useEffect(() => {
-    fetchAddress();
-    setupPermissionless();
+    setupClients();
   }, []);
 
-  const fetchAddress = async () => {
+  const setupClients = async () => {
     if (typeof window.ethereum !== 'undefined') {
-      const client = createWalletClient({
+      const publicClient = createPublicClient({
         chain: celo,
-        transport: custom(window.ethereum),
+        transport: http(),
       });
 
-      const addresses = await client.getAddresses();
-      if (addresses && addresses.length > 0) {
-        const newAddress = addresses[0];
-        setAddress(newAddress);
-        onAddressChange(newAddress);
-      }
+      const bundler = createBundlerClient({
+        client: publicClient,
+        transport: http('https://api.pimlico.io/v2/42220/rpc?apikey=cfae95f6-a6eb-4569-b39e-01bee99dfcb8'), // Replace with actual Celo bundler URL
+      });
+
+      setBundlerClient(bundler);
+
+      // For demonstration purposes, we're using a hardcoded private key.
+      // In a real application, you should use a secure method to manage private keys.
+      const owner = privateKeyToAccount('0x98c8310a4c8d3ab4edb6c004b42cdc79dcdb74b7254fe3f3d7cc413d04b65437'); // Replace with actual private key
+
+      const account = await toCoinbaseSmartAccount({
+        client: publicClient,
+        owners: [owner],
+      });
+
+      setSmartAccount(account);
+      setAddress(account.address);
+      onAddressChange(account.address);
     } else {
       console.error('Ethereum provider not found');
     }
   };
 
-  const setupPermissionless = async () => {
-    if (address) {
-      const bundlerClient = createBundlerClient({
-        chain: celo,
-        transport: http('https://api.pimlico.io/v2/42220/rpc?apikey=cfae95f6-a6eb-4569-b39e-01bee99dfcb8'), // Replace with actual bundler URL
-        entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // Replace with actual entry point
+  const sendUserOperation = async (to, value) => {
+    if (!smartAccount || !bundlerClient) {
+      console.error('Smart account or bundler client not initialized');
+      return;
+    }
+
+    try {
+      const hash = await bundlerClient.sendUserOperation({
+        account: smartAccount,
+        calls: [{
+          to,
+          value: parseEther(value),
+        }],
       });
 
-      setBundlerClient(bundlerClient);
-
-      const smartAccountClient = createSmartAccountClient({
-        account: await createKernelAccountClient({
-          entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // Replace with actual entry point
-          signer: { address }, // Use the EOA address as signer
-          provider: window.ethereum,
-        }),
-        entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // Replace with actual entry point
-        bundlerClient,
-      });
-
-      setSmartAccountClient(smartAccountClient);
-
-      const smartAccountAddress = await smartAccountClient.getAddress();
-      setSmartAccountAddress(smartAccountAddress);
+      const receipt = await bundlerClient.waitForUserOperationReceipt({ hash });
+      console.log('User operation receipt:', receipt);
+      return receipt;
+    } catch (error) {
+      console.error('Error sending user operation:', error);
     }
   };
 
   useImperativeHandle(ref, () => ({
-    getAddress: async () => {
-      if (!address) {
-        await fetchAddress();
-      }
-      return address;
-    },
-    getSmartAccountAddress: () => smartAccountAddress,
-    sendUserOperation: async (target, data, value = BigInt(0)) => {
-      if (smartAccountClient) {
-        const userOpHash = await smartAccountClient.sendUserOperation({
-          target,
-          data,
-          value,
-        });
-        return userOpHash;
-      }
-      throw new Error('Smart account client not initialized');
-    },
+    getAddress: () => address,
+    sendUserOperation,
   }));
 
   return (
     <div className='text-sm'>
-      <div>{address ? `EOA Address: ${address}` : 'Loading EOA...'}</div>
-      <div>{smartAccountAddress ? `Smart Account Address: ${smartAccountAddress}` : 'Loading Smart Account...'}</div>
+      {address ? `Celo Smart Account Address: ${address}` : 'Loading...'}
     </div>
   );
 });
 
 export default Celon;
-

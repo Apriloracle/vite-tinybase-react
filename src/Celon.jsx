@@ -1,61 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { createWalletClient, custom } from 'viem';
 import { celo } from 'viem/chains';
 
-class Celon extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { 
-            address: null, 
-            error: null
-        };
+const Celon = forwardRef(({ onAddressChange }, ref) => {
+  const [address, setAddress] = useState(null);
+
+  useEffect(() => {
+    fetchAddress();
+  }, []);
+
+  const fetchAddress = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      const client = createWalletClient({
+        chain: celo,
+        transport: custom(window.ethereum),
+      });
+
+      const addresses = await client.getAddresses();
+      if (addresses && addresses.length > 0) {
+        const newAddress = addresses[0];
+        setAddress(newAddress);
+        onAddressChange(newAddress);
+      }
+    } else {
+      console.error('Ethereum provider not found');
     }
+  };
 
-    componentDidMount() {
-        this.fetchAddress();
+  useImperativeHandle(ref, () => ({
+    getAddress: async () => {
+      if (!address) {
+        await fetchAddress();
+      }
+      return address;
     }
+  }));
 
-    async fetchAddress() {
-        if (typeof window.ethereum !== 'undefined') {
-            try {
-                const client = createWalletClient({
-                    chain: celo,
-                    transport: custom(window.ethereum),
-                });
-
-                const addresses = await client.getAddresses();
-                if (addresses && addresses.length > 0) {
-                    this.setState({ address: addresses[0] });
-                }
-            } catch (error) {
-                console.error('Error fetching address:', error);
-                this.setState({ error: 'Failed to fetch Celo address' });
-            }
-        } else {
-            console.error('Ethereum provider not found');
-            this.setState({ error: 'Ethereum provider not found' });
-        }
-    }
-
-    render() {
-        const { address, error } = this.state;
-
-        return (
-            <div className='flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-orange-100 to-orange-200'>
-                <div className='bg-white p-8 rounded-lg shadow-md'>
-                    {address ? (
-                        <p className='text-lg font-semibold text-gray-800'>
-                            Celo Address: <span className='text-orange-600'>{address}</span>
-                        </p>
-                    ) : error ? (
-                        <p className='text-lg font-semibold text-red-500'>{error}</p>
-                    ) : (
-                        <p className='text-lg font-semibold text-gray-600'>Loading Celo address...</p>
-                    )}
-                </div>
-            </div>
-        );
-    }
-}
+  return (
+    <div className='text-sm'>
+      {address ? `Celo Address: ${address}` : 'Loading...'}
+    </div>
+  );
+});
 
 export default Celon;

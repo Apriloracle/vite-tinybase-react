@@ -13,7 +13,7 @@ import Celon from './Celon';
 const DB_NAME = 'MyAppDatabase';
 const CLICK_COUNTER_KEY = 'clickCounter';
 const MERGEABLE_STORE_KEY = 'mergeableClickCounter';
-const WS_SERVER = 'wss://todo.demo.tinybase.org/';
+const WS_SERVER = 'wss://tinybasewsserver-production.up.railway.app';
 
 const GlobalClickCounter = () => {
   const clickCount = useValue(CLICK_COUNTER_KEY);
